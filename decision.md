@@ -64,11 +64,17 @@ A running log of the choices made while building this project, why they were mad
 - Rejected: keeping the last N rows per URL; no limit at all.
 - The query that reads results is left to the `/status` commit, because it depends on what the endpoint returns.
 
+## Testing
+
+**13. pytest, as a development-only dependency**
+- Why: the de facto standard; plain `assert` statements; FastAPI's test client is built to work with it.
+- Rejected: unittest (built in, but more verbose).
+- Test tools live in `requirements-dev.txt`, which includes `requirements.txt`, so the Docker image only installs what the service needs.
+
 ## Still open
 
 - Where the URL file and the database live (paths, Docker volumes), and whether the repository ships an example URL file.
 - HTTP client for the checks, timeouts, and the list of `error` categories.
 - Protection against requests to private IP addresses (SSRF) in the checker.
-- Test framework.
 - What `/status` returns, and how the API is protected.
 - Language of the README.
