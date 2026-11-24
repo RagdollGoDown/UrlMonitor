@@ -5,5 +5,9 @@
 __pycache__/
 *.pyc
 
+# SQLite database written by the service
+*.db
+*.db-journal
+
 # Environment files often hold secrets: never commit them
 .env
