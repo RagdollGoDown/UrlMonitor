@@ -110,7 +110,7 @@ A running log of the choices made while building this project, why they were mad
 - Only URLs in the current URL file are listed, in file order. A URL not checked yet has `"checks": []`; a URL removed from the file disappears, even though its rows remain until the 7-day cleanup.
 - Rejected: only the latest result per URL (no trend); a flat list with filters (harder to read).
 
-**22. `/status` is the only endpoint**
+**22. `/status` is the only data endpoint** (plus `/health`, see 29)
 - FastAPI's `/docs`, `/redoc` and `/openapi.json` are turned off: they publish a map of the API. The README documents `/status` instead.
 
 **23. Endpoints are `async def`**
@@ -164,10 +164,16 @@ A running log of the choices made while building this project, why they were mad
 - Rejected: a blocklist, which has to predict every file to exclude.
 - Cost: a new file the image needs must be added here, or `COPY` fails.
 
+**29. `GET /health` and a Docker `HEALTHCHECK`**
+- Healthy means the worker task is still running and the database answers `SELECT 1`. Anything else returns 503.
+- The response is only `{"status": "ok"}` or `{"status": "unhealthy"}`: the endpoint is public, so the reason is never given.
+- Rejected: "the process answers" (misses a dead worker or a broken database); "a round finished recently" (extra code for a stuck worker, which the 5-second timeout already prevents).
+- Docker calls it every 30s with a 5s timeout, marks the container unhealthy after 3 failures in a row, and ignores failures in the first 15s. The image has no `curl`, so the check uses Python's `urllib`.
+- Docker alone only marks the container unhealthy; it does not restart it. `--restart` only acts when the container exits.
+
 ## Still open
 
-- Docker: `HEALTHCHECK` and a `/health` endpoint.
-- How the API is protected (Cloudflare Access is the plan), and a `/health` endpoint for Docker.
+- How the API is protected (Cloudflare Access is the plan).
 - Logging configuration.
 - Starlette's test client now warns that `httpx` is deprecated in favour of `httpx2`.
 - Language of the README.

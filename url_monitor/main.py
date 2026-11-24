@@ -1,4 +1,4 @@
-"""The FastAPI app: starts the worker on startup and serves GET /status.
+"""The FastAPI app: starts the worker on startup and serves GET /status and GET /health.
 
 Run with a single process (the worker lives inside it):
     uvicorn url_monitor.main:app
@@ -6,12 +6,14 @@ Run with a single process (the worker lives inside it):
 
 import asyncio
 import os
+import sqlite3
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, Query, Request
+from fastapi.responses import JSONResponse
 
 from url_monitor.checker import check_url
 from url_monitor.config import load_urls
@@ -32,9 +34,10 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Startup: an invalid URL file raises here, so the app refuses to start.
-        app.state.urls = load_urls(urls_file)
-        app.state.storage = Storage(db_path)
-        worker = asyncio.create_task(run_forever(app.state.urls, app.state.storage, interval, check=check))
+        urls = load_urls(urls_file)
+        storage = Storage(db_path)
+        worker = asyncio.create_task(run_forever(urls, storage, interval, check=check))
+        app.state.urls, app.state.storage, app.state.worker = urls, storage, worker
         try:
             yield  # the app serves requests while paused here
         finally:
@@ -42,7 +45,7 @@ def create_app(
             worker.cancel()
             with suppress(asyncio.CancelledError):
                 await worker
-            app.state.storage.close()
+            storage.close()
 
     # docs_url, redoc_url and openapi_url disabled: they would publish a map of the API.
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
@@ -54,6 +57,21 @@ def create_app(
     ) -> dict:
         recent = request.app.state.storage.recent(request.app.state.urls, limit)
         return {"urls": [{"url": url, "checks": [_to_json(check) for check in checks]} for url, checks in recent.items()]}
+
+    @app.get("/health")
+    async def health(request: Request) -> JSONResponse:
+        """200 if the worker is running and the database answers, 503 otherwise.
+
+        The response never says why: this endpoint is public, like /status.
+        """
+        healthy = not request.app.state.worker.done()  # done() is True once the task has stopped
+        try:
+            request.app.state.storage.ping()
+        except sqlite3.Error:
+            healthy = False
+        if healthy:
+            return JSONResponse({"status": "ok"})
+        return JSONResponse({"status": "unhealthy"}, status_code=503)
 
     return app
 

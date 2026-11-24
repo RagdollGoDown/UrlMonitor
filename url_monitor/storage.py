@@ -88,5 +88,9 @@ class Storage:
             ]
         return recent
 
+    def ping(self) -> None:
+        """Run a trivial query; raises sqlite3.Error if the database is unusable."""
+        self._conn.execute("SELECT 1").fetchone()
+
     def close(self) -> None:
         self._conn.close()

@@ -1,4 +1,5 @@
 import asyncio
+import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -121,3 +122,39 @@ def test_invalid_url_file_prevents_startup(tmp_path, db_path):
     with pytest.raises(UrlListError):
         with client_for(bad_file, db_path):
             pass
+
+
+# --- /health --------------------------------------------------------------
+
+
+def test_health_is_ok_when_worker_runs_and_database_answers(urls_file, db_path):
+    with client_for(urls_file, db_path) as client:
+        response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+class StoppedTask:
+    """Stands in for a worker task that has stopped."""
+
+    def done(self):
+        return True
+
+
+class BrokenStorage:
+    """Stands in for a database that no longer answers."""
+
+    def ping(self):
+        raise sqlite3.OperationalError("disk I/O error")
+
+
+@pytest.mark.parametrize(
+    ("attribute", "replacement"),
+    [("worker", StoppedTask()), ("storage", BrokenStorage())],
+)
+def test_health_is_503_without_details_when_something_is_wrong(urls_file, db_path, attribute, replacement):
+    with client_for(urls_file, db_path) as client:
+        setattr(client.app.state, attribute, replacement)
+        response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json() == {"status": "unhealthy"}  # no reason given to the public

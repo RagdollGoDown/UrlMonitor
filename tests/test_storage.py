@@ -150,3 +150,17 @@ def test_recent_leaves_out_urls_not_asked_for(storage):
 def test_recent_rejects_limit_below_one(storage, limit):
     with pytest.raises(ValueError, match="at least 1"):
         storage.recent(["https://example.com"], limit=limit)
+
+
+# --- ping -----------------------------------------------------------------
+
+
+def test_ping_succeeds_on_open_database(storage):
+    storage.ping()  # no exception means the database answered
+
+
+def test_ping_fails_on_closed_database(db_path):
+    store = Storage(db_path)
+    store.close()
+    with pytest.raises(sqlite3.Error):
+        store.ping()
