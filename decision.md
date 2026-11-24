@@ -175,8 +175,8 @@ A running log of the choices made while building this project, why they were mad
 
 **30. The README is in French and short**
 - French, like the brief; the code and this log stay in English.
-- It summarises the main choices and links here for the details, rather than repeating every entry.
-- It lists the limitations openly.
+- It describes how to run, configure, test and deploy the service, and lists the limitations openly; the design choices are kept out of it and live only in this log.
+- It starts with the two public URLs of the running instance, so the reviewer can try it straight away.
 
 ## Operations
 
@@ -185,7 +185,31 @@ A running log of the choices made while building this project, why they were mad
 - Why: enough for a service this size; anything more is configuration to maintain for little gain.
 - Rejected for now: a shared format for our logs and uvicorn's, a `LOG_LEVEL` setting, a summary line per round, hiding `/health` from the access log.
 
+## Deployment
+
+**32. A dedicated Proxmox VM running Ubuntu 24.04**
+- Cloned (full clone) from an existing cloud-init template; 1 vCPU, 1 GB of RAM.
+- Why a VM: better isolation from the Proxmox host than an LXC container.
+- Docker comes from Docker's official repository and is always run with `sudo`; the user is not in the `docker` group, which amounts to root.
+- The image is built on the VM from a clone of the (now public) repository: no registry and no credentials needed.
+- Reached over SSH through Tailscale (jumping through the Proxmox host), so the VM itself gets no extra way in.
+
+**33. Hardened `docker run`**
+- `--read-only` (plus `--tmpfs /tmp:size=16m`), `--cap-drop ALL`, `--security-opt no-new-privileges`, `--memory 256m`, `--pids-limit 100`, log rotation (`max-size=10m`, `max-file=3`), `--restart unless-stopped`.
+- The port is published on `127.0.0.1` only, so nothing on the LAN can reach the app directly.
+- Tested before deployment: the container is healthy, has no capabilities, cannot write outside `/data`, and uses about 44 MB of memory.
+
+**34. Cloudflare Tunnel with `cloudflared` as a systemd service**
+- A remotely managed tunnel (created in the dashboard, routes edited there), with one route: the public hostname to `http://localhost:8000`. HTTP, not HTTPS: that hop stays inside the VM, and uvicorn does not speak TLS.
+- Rejected: cloudflared in a second container (slightly tighter, two containers to manage); a locally managed tunnel (more files holding secrets for the same result).
+- The tunnel token lives only in the systemd service, and was typed with a leading space to keep it out of the shell history.
+
+**35. Public access, without authentication**
+- The reviewer opens the public URL directly. Acceptable because the API is read-only and lists only public URLs; Cloudflare absorbs abusive traffic.
+- Rejected for now: Cloudflare Access with an email allowlist (needs the reviewer's email) or a service token (awkward in a browser). Either can be added later without changing the code.
+
 ## Still open
 
-- How the API is protected (Cloudflare Access is the plan).
+- A Cloudflare rate-limiting rule on the public hostname.
+- A Proxmox firewall rule blocking the VM from the Proxmox management interface, as a backstop to the SSRF guard.
 - Starlette's test client now warns that `httpx` is deprecated in favour of `httpx2`.
