@@ -64,6 +64,16 @@ A running log of the choices made while building this project, why they were mad
 - Rejected: keeping the last N rows per URL; no limit at all.
 - The query that reads results is left to the `/status` commit, because it depends on what the endpoint returns.
 
+## Security
+
+**14. SSRF guard: only public internet addresses can be checked**
+- Blocks private, loopback, link-local (including cloud metadata), carrier-grade NAT, reserved, multicast and broadcast addresses, in IPv4 and IPv6, including IPv4 addresses hidden inside IPv6 (`::ffff:127.0.0.1`).
+- Uses `ipaddress.is_global`, plus an explicit multicast check because `is_global` counts multicast as global.
+- Runs on every check, not when the file is loaded, because what a name resolves to can change.
+- If any resolved address is non-public, the host is blocked.
+- Returns the validated IP so the checker connects to exactly that address (protection against DNS rebinding).
+- Cannot be turned off: no setting to allow private addresses for now, so it is safe by default.
+
 ## Testing
 
 **13. pytest, as a development-only dependency**
@@ -75,6 +85,5 @@ A running log of the choices made while building this project, why they were mad
 
 - Where the URL file and the database live (paths, Docker volumes), and whether the repository ships an example URL file.
 - HTTP client for the checks, timeouts, and the list of `error` categories.
-- Protection against requests to private IP addresses (SSRF) in the checker.
 - What `/status` returns, and how the API is protected.
 - Language of the README.
