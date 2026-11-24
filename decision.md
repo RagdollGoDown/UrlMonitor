@@ -147,9 +147,26 @@ A running log of the choices made while building this project, why they were mad
 - Only `requirements.txt` and `url_monitor/` are copied into the image.
 - uvicorn runs a single process listening on `0.0.0.0:8000` inside the container (see 18).
 
+**26. The container runs as an unprivileged user, `app` (UID 10001)**
+- Why: if the app were compromised, the attacker could not change its code (owned by root), install tools, or write anywhere except `/data`; and escaping the container would be much harder and would not land as root on the host.
+- A fixed UID, so the host knows whom to give a mounted folder to. 10001 is well above the IDs of real users (1000 and up).
+- The database lives in `/data` (`DB_PATH=/data/monitor.db`), the only folder `app` can write to. A named volume (`-v monitor-data:/data`) keeps results across restarts and takes its ownership from the image; a host folder would need `chown 10001` first.
+- Complementary, not a replacement: rootless Docker or user namespaces, configured on the server.
+
+**27. The image includes a default `urls.txt`**
+- The repository's `urls.txt` (public URLs) is copied into the image, so `docker run url-monitor` works with no mount. Mounting another file at `/app/urls.txt` replaces it.
+- Like the code, it belongs to root: the app can read it but not change it.
+- Rejected: requiring a mount (stricter, but a reviewer would have to create a file before the first run).
+
+**28. `.dockerignore` is an allowlist**
+- Everything is excluded (`*`), then only `requirements.txt`, `url_monitor/` and `urls.txt` are let back in; Python caches are excluded even inside them.
+- Why: a new file, such as a secret or a local database, stays out of the build until it is added on purpose. It also keeps `.venv/` and `.git/` from being sent on every build.
+- Rejected: a blocklist, which has to predict every file to exclude.
+- Cost: a new file the image needs must be added here, or `COPY` fails.
+
 ## Still open
 
-- Docker: non-root user, `.dockerignore`, `HEALTHCHECK`, and where the URL file and database live (volumes, example URL file).
+- Docker: `HEALTHCHECK` and a `/health` endpoint.
 - How the API is protected (Cloudflare Access is the plan), and a `/health` endpoint for Docker.
 - Logging configuration.
 - Starlette's test client now warns that `httpx` is deprecated in favour of `httpx2`.
