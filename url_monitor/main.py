@@ -6,7 +6,7 @@ Run with a single process (the worker lives inside it):
 
 import asyncio
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Annotated
@@ -30,7 +30,7 @@ def create_app(
     interval: float = DEFAULT_INTERVAL_SECONDS,
 ) -> FastAPI:
     @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Startup: an invalid URL file raises here, so the app refuses to start.
         app.state.urls = load_urls(urls_file)
         app.state.storage = Storage(db_path)
