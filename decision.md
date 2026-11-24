@@ -178,8 +178,14 @@ A running log of the choices made while building this project, why they were mad
 - It summarises the main choices and links here for the details, rather than repeating every entry.
 - It lists the limitations openly.
 
+## Operations
+
+**31. No logging configuration**
+- Without configuration, Python still prints warnings and errors (with tracebacks) to stderr, so the worker's existing messages (a bug during a check, a failed round, a round longer than the interval) reach `docker logs`, without a timestamp or level. uvicorn keeps its own logs, including one line per request.
+- Why: enough for a service this size; anything more is configuration to maintain for little gain.
+- Rejected for now: a shared format for our logs and uvicorn's, a `LOG_LEVEL` setting, a summary line per round, hiding `/health` from the access log.
+
 ## Still open
 
 - How the API is protected (Cloudflare Access is the plan).
-- Logging configuration.
 - Starlette's test client now warns that `httpx` is deprecated in favour of `httpx2`.
