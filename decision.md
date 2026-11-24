@@ -80,8 +80,26 @@ A running log of the choices made while building this project, why they were mad
 - Rejected: `HEAD` requests, which some servers answer wrongly (405) or differently from `GET`.
 
 **17. Error categories**
-- `timeout`, `dns_error`, `connection_error`, `tls_error`, `blocked` (SSRF guard), `other_error`.
+- `timeout`, `dns_error`, `connection_error`, `tls_error`, `blocked` (SSRF guard), `other_error`, and `internal_error` (a bug in our own code, see 20).
 - Fixed categories rather than exception messages: stable, easy to filter, and they don't leak internal details through `/status`.
+
+## Worker
+
+**18. The worker runs as a background task in FastAPI's `lifespan`**
+- Why: one process to deploy, and the API and the worker share the same database connection.
+- Trade-off: the app must run as a single uvicorn process, otherwise each process would run its own worker.
+- Rejected: a separate worker process or container (more robust, more to deploy).
+
+**19. Rounds start every 60 seconds, at most 10 checks at a time**
+- URLs are checked concurrently, capped at 10 by an `asyncio.Semaphore`, so one slow URL doesn't delay the others and the network isn't flooded.
+- Rounds are scheduled from the previous round's start on a monotonic clock, so they don't drift.
+- Rounds never overlap. If one takes longer than the interval, a warning is logged and the next starts immediately. With a 5-second timeout, this only happens with more than about 120 URLs that all time out.
+
+**20. A bug in our own code doesn't stop the worker**
+- If a check raises unexpectedly, the traceback is logged and an `internal_error` result is saved, so `/status` shows something is wrong instead of a stale result. The other URLs are still checked.
+- If a whole round fails (e.g. the database is unavailable), it is logged and the next round runs as planned.
+- Only `Exception` is caught, never `BaseException`: `CancelledError` must get through so the app can shut down.
+- `blocked` stays a single category with no detail, in `/status` or in the logs.
 
 ## Security
 
