@@ -171,9 +171,15 @@ A running log of the choices made while building this project, why they were mad
 - Docker calls it every 30s with a 5s timeout, marks the container unhealthy after 3 failures in a row, and ignores failures in the first 15s. The image has no `curl`, so the check uses Python's `urllib`.
 - Docker alone only marks the container unhealthy; it does not restart it. `--restart` only acts when the container exits.
 
+## Documentation
+
+**30. The README is in French and short**
+- French, like the brief; the code and this log stay in English.
+- It summarises the main choices and links here for the details, rather than repeating every entry.
+- It lists the limitations openly.
+
 ## Still open
 
 - How the API is protected (Cloudflare Access is the plan).
 - Logging configuration.
 - Starlette's test client now warns that `httpx` is deprecated in favour of `httpx2`.
-- Language of the README.
