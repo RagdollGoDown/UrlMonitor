@@ -1,0 +1,5 @@
+# Direct dependencies: the packages our code imports. Edit this file, then
+# regenerate requirements.txt (see the command at the top of that file).
+fastapi==0.165.0
+uvicorn==0.54.0
+httpx==0.28.1

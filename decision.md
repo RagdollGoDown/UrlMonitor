@@ -13,10 +13,11 @@ A running log of the choices made while building this project, why they were mad
 - Rejected: 3.11, whose security support ends in October 2027.
 - Note: local development runs on 3.14, so the code must avoid 3.14-only features.
 
-**3. Dependencies in `requirements.txt`, with exact versions for direct dependencies**
-- Why: the simplest format to read and install; pinning makes installs repeatable.
-- Trade-off: transitive dependencies (pydantic, starlette) are not pinned yet.
-- Rejected: `pyproject.toml` (more ceremony), uv (an extra tool), conda (heavy for a slim image).
+**3. Requirements files, with every dependency locked**
+- `requirements.in` lists the direct dependencies, edited by hand. `requirements.txt` is generated from it with `pip freeze` and locks every package, including transitive ones (pydantic, starlette...), to an exact version.
+- The lock is generated inside a `python:3.13-slim` container, because some packages only need certain dependencies on certain Python versions; a lock made on 3.14 could miss one.
+- Why: the simplest format to read and install; locking means every build installs exactly the same code.
+- Rejected: `pyproject.toml` (more ceremony), uv or pip-tools (an extra tool), conda (heavy for a slim image).
 
 **4. Flat package layout: `url_monitor/` at the repository root**
 - Why: the folder name is the import name (`from url_monitor.config import ...`).
