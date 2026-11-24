@@ -1,0 +1,10 @@
+# Allowlist: ignore everything, then let through only what the Dockerfile copies.
+# A new file (a secret, a local database...) is excluded unless added here.
+*
+!requirements.txt
+!url_monitor/
+!urls.txt
+
+# Python caches, even inside the folders allowed above.
+**/__pycache__
+**/*.pyc
