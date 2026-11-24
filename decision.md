@@ -62,7 +62,7 @@ A running log of the choices made while building this project, why they were mad
 **12. Results are kept for 7 days**
 - Rows older than 7 days are deleted on every save, measured from the new result's own timestamp. An index on `checked_at` keeps this cheap.
 - Rejected: keeping the last N rows per URL; no limit at all.
-- The query that reads results is left to the `/status` commit, because it depends on what the endpoint returns.
+- Reading: `recent(urls, limit)` returns the latest `limit` results for each given URL, newest first. It runs one small query per URL, each served by the `(url, checked_at)` index; a single query with a window function (`ROW_NUMBER() OVER (PARTITION BY url ...)`) was rejected as harder to read for no real gain at this size.
 
 ## Checking URLs
 

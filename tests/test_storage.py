@@ -115,3 +115,38 @@ def test_database_rejects_rows_breaking_the_one_outcome_rule(storage, db_path, s
             "INSERT INTO checks (url, checked_at, response_time_ms, status_code, error) VALUES (?, ?, ?, ?, ?)",
             ("https://example.com", to_iso(NOW), 1.0, status_code, error),
         )
+
+
+# --- recent ---------------------------------------------------------------
+
+
+def test_recent_returns_newest_first_up_to_limit(storage):
+    for minutes in range(5):
+        storage.save(result(checked_at=NOW + timedelta(minutes=minutes)))
+    checks = storage.recent(["https://example.com"], limit=3)["https://example.com"]
+    assert [check.checked_at for check in checks] == [NOW + timedelta(minutes=m) for m in (4, 3, 2)]
+
+
+def test_recent_rebuilds_full_check_results(storage):
+    storage.save(result(error="timeout"))
+    [check] = storage.recent(["https://example.com"], limit=10)["https://example.com"]
+    assert check == result(error="timeout")  # dataclass equality: every field matches
+
+
+def test_recent_includes_unchecked_urls_and_keeps_given_order(storage):
+    storage.save(result())
+    recent = storage.recent(["https://never.example", "https://example.com"], limit=10)
+    assert list(recent) == ["https://never.example", "https://example.com"]
+    assert recent["https://never.example"] == []
+    assert len(recent["https://example.com"]) == 1
+
+
+def test_recent_leaves_out_urls_not_asked_for(storage):
+    storage.save(result())  # saved for https://example.com
+    assert storage.recent(["https://other.example"], limit=10) == {"https://other.example": []}
+
+
+@pytest.mark.parametrize("limit", [0, -1])
+def test_recent_rejects_limit_below_one(storage, limit):
+    with pytest.raises(ValueError, match="at least 1"):
+        storage.recent(["https://example.com"], limit=limit)

@@ -60,5 +60,33 @@ class Storage:
             )
             self._conn.execute("DELETE FROM checks WHERE checked_at < ?", (to_iso(cutoff),))
 
+    def recent(self, urls: list[str], limit: int) -> dict[str, list[CheckResult]]:
+        """Return the latest `limit` results for each URL, newest first.
+
+        Every URL in `urls` appears in the result, in the same order, with an
+        empty list if it has not been checked yet. URLs not in `urls` are left out.
+        """
+        if limit < 1:
+            raise ValueError("limit must be at least 1")  # SQLite treats LIMIT -1 as "no limit"
+        recent: dict[str, list[CheckResult]] = {}
+        for url in urls:
+            # One small query per URL; each one is served by the (url, checked_at) index.
+            rows = self._conn.execute(
+                "SELECT checked_at, response_time_ms, status_code, error FROM checks"
+                " WHERE url = ? ORDER BY checked_at DESC, id DESC LIMIT ?",
+                (url, limit),
+            ).fetchall()
+            recent[url] = [
+                CheckResult(
+                    url=url,
+                    checked_at=datetime.fromisoformat(checked_at),
+                    response_time_ms=response_time_ms,
+                    status_code=status_code,
+                    error=error,
+                )
+                for checked_at, response_time_ms, status_code, error in rows
+            ]
+        return recent
+
     def close(self) -> None:
         self._conn.close()
