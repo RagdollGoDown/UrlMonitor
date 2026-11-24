@@ -64,6 +64,25 @@ A running log of the choices made while building this project, why they were mad
 - Rejected: keeping the last N rows per URL; no limit at all.
 - The query that reads results is left to the `/status` commit, because it depends on what the endpoint returns.
 
+## Checking URLs
+
+**15. httpx, with one fresh client per check**
+- Why: async (fits FastAPI), and built-in mocking (`MockTransport`) so tests never use the network.
+- A new client per check means a new connection every time, so every measurement includes the same TCP and TLS setup. Reusing connections would make the first check slow and later ones fast.
+- `trust_env=False`: proxy settings from the environment are ignored, because a proxy would bypass the IP pinning.
+
+**16. What a check does and measures**
+- A 5-second hard limit for the whole check, DNS included.
+- A `GET` request; the body is never downloaded (the response is closed once the headers arrive). This avoids huge or malicious bodies.
+- Redirects are not followed: a 3xx is recorded as-is. It already proves the server answers, and following it could lead to an internal address.
+- `response_time_ms` is the time from sending the request to receiving the response headers. DNS lookup time is not included.
+- Failures before the request is sent (`dns_error`, `blocked`) therefore have a time of `0.0`.
+- Rejected: `HEAD` requests, which some servers answer wrongly (405) or differently from `GET`.
+
+**17. Error categories**
+- `timeout`, `dns_error`, `connection_error`, `tls_error`, `blocked` (SSRF guard), `other_error`.
+- Fixed categories rather than exception messages: stable, easy to filter, and they don't leak internal details through `/status`.
+
 ## Security
 
 **14. SSRF guard: only public internet addresses can be checked**
@@ -84,6 +103,5 @@ A running log of the choices made while building this project, why they were mad
 ## Still open
 
 - Where the URL file and the database live (paths, Docker volumes), and whether the repository ships an example URL file.
-- HTTP client for the checks, timeouts, and the list of `error` categories.
 - What `/status` returns, and how the API is protected.
 - Language of the README.
