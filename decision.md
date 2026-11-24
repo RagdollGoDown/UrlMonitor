@@ -138,9 +138,18 @@ A running log of the choices made while building this project, why they were mad
 - Rejected: unittest (built in, but more verbose).
 - Test tools live in `requirements-dev.txt`, which includes `requirements.txt`, so the Docker image only installs what the service needs.
 
+## Docker
+
+**25. One-stage image based on `python:3.13-slim`**
+- The tag follows Python 3.13 patch releases, so rebuilding picks up security fixes. Pinning the image digest was rejected for now: stricter, but it has to be updated by hand.
+- One stage: every dependency installs from a prebuilt wheel, with nothing to compile, so a multi-stage build would save little.
+- Dependencies are installed before the code is copied, so code changes don't reinstall them.
+- Only `requirements.txt` and `url_monitor/` are copied into the image.
+- uvicorn runs a single process listening on `0.0.0.0:8000` inside the container (see 18).
+
 ## Still open
 
-- Docker volumes for the URL file and the database, and whether the repository ships an example URL file.
+- Docker: non-root user, `.dockerignore`, `HEALTHCHECK`, and where the URL file and database live (volumes, example URL file).
 - How the API is protected (Cloudflare Access is the plan), and a `/health` endpoint for Docker.
 - Logging configuration.
 - Starlette's test client now warns that `httpx` is deprecated in favour of `httpx2`.
