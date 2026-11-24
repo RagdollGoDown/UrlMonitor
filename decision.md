@@ -101,6 +101,25 @@ A running log of the choices made while building this project, why they were mad
 - Only `Exception` is caught, never `BaseException`: `CancelledError` must get through so the app can shut down.
 - `blocked` stays a single category with no detail, in `/status` or in the logs.
 
+## API
+
+**21. `GET /status` returns the last N results for each URL, grouped by URL**
+- Shape: `{"urls": [{"url": ..., "checks": [{"checked_at", "status_code", "error", "response_time_ms"}, ...]}]}`, newest check first.
+- `?limit=` sets N: 10 by default, from 1 to 100. Anything else gets a 422 error.
+- Only URLs in the current URL file are listed, in file order. A URL not checked yet has `"checks": []`; a URL removed from the file disappears, even though its rows remain until the 7-day cleanup.
+- Rejected: only the latest result per URL (no trend); a flat list with filters (harder to read).
+
+**22. `/status` is the only endpoint**
+- FastAPI's `/docs`, `/redoc` and `/openapi.json` are turned off: they publish a map of the API. The README documents `/status` instead.
+
+**23. Endpoints are `async def`**
+- They run in the event loop's thread, the same thread that opened the SQLite connection, which `sqlite3` requires. A `def` endpoint would run in a thread pool and fail.
+- Acceptable because the query takes well under a millisecond, so it never holds up the worker.
+
+**24. File locations come from `URLS_FILE` and `DB_PATH`**
+- Defaults: `urls.txt` and `data/monitor.db`. These only say *where* the files are, so Docker can point them at mounted volumes; the URLs themselves still come only from the file.
+- `create_app(...)` takes the paths and the check function as arguments, so tests can build an app with temporary files and a fake check.
+
 ## Security
 
 **14. SSRF guard: only public internet addresses can be checked**
@@ -120,6 +139,8 @@ A running log of the choices made while building this project, why they were mad
 
 ## Still open
 
-- Where the URL file and the database live (paths, Docker volumes), and whether the repository ships an example URL file.
-- What `/status` returns, and how the API is protected.
+- Docker volumes for the URL file and the database, and whether the repository ships an example URL file.
+- How the API is protected (Cloudflare Access is the plan), and a `/health` endpoint for Docker.
+- Logging configuration.
+- Starlette's test client now warns that `httpx` is deprecated in favour of `httpx2`.
 - Language of the README.
